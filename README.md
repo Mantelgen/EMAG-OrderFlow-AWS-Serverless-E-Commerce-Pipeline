@@ -68,9 +68,6 @@ This project is provided as a template for educational and demonstration purpose
 
 ---
 
-## 💡 Suggested GitHub Repository Name
-
-**emag-orderflow-serverless**
 
 ---
 
