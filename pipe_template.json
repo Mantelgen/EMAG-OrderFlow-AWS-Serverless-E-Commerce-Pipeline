@@ -1,0 +1,52 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "CloudFormation template for EventBridge Pipecosmin_EMAG_PIPE",
+  "Resources": {
+    "Pipe65bc2d97": {
+      "Type": "AWS::Pipes::Pipe",
+      "DependsOn": [],
+      "Properties": {
+  "RoleArn": "arn:aws:iam::<YOUR_ACCOUNT_ID>:role/<YOUR_ROLE>",
+  "Name": "<YOUR_PIPE_NAME>",
+        "DesiredState": "RUNNING",
+        "Source": {
+          "Fn::Sub": "arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/<YOUR_TABLE>/stream/<YOUR_STREAM_TIMESTAMP>"
+        },
+        "SourceParameters": {
+          "FilterCriteria": {
+            "Filters": [{
+              "Pattern": "{\"eventName\":[\"INSERT\"]}"
+            }]
+          },
+          "DynamoDBStreamParameters": {
+            "BatchSize": 10,
+            "MaximumRecordAgeInSeconds": -1,
+            "MaximumRetryAttempts": -1,
+            "StartingPosition": "LATEST"
+          }
+        },
+        "LogConfiguration": {
+          "CloudwatchLogsLogDestination": {
+            "LogGroupArn": {
+              "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/vendedlogs/pipes/<YOUR_PIPE_NAME>"
+            }
+          },
+          "Level": "ERROR"
+        },
+        "EnrichmentParameters": {},
+        "Enrichment": {
+          "Fn::Sub": "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:<YOUR_ENRICH_FUNCTION>"
+        },
+        "TargetParameters": {
+          "StepFunctionStateMachineParameters": {
+            "InvocationType": "FIRE_AND_FORGET"
+          }
+        },
+        "Target": {
+          "Fn::Sub": "arn:${AWS::Partition}:states:${AWS::Region}:${AWS::AccountId}:stateMachine:<YOUR_STATE_MACHINE>"
+        }
+      }
+    }
+  },
+  "Parameters": {}
+}

@@ -1,0 +1,177 @@
+{
+  "Comment": "Order processing workflow - fara Payload wrapper",
+  "StartAt": "NormalizeInput",
+  "States": {
+    "NormalizeInput": {
+      "Type": "Pass",
+      "InputPath": "$[0]",
+      "ResultPath": "$",
+      "Next": "ValidateOrder"
+    },
+    "ValidateOrder": {
+      "Type": "Task",
+  "Resource": "arn:aws:lambda:<YOUR_REGION>:<YOUR_ACCOUNT_ID>:function:<YOUR_FUNCTION_NAME>",
+      "ResultPath": "$.validationResult",
+      "Next": "IsValidOrder",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ]
+    },
+    "IsValidOrder": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.validationResult.isValid",
+          "BooleanEquals": true,
+          "Next": "OrderReservation"
+        }
+      ],
+      "Default": "SendFailMail"
+    },
+    "OrderReservation": {
+      "Type": "Task",
+  "Resource": "arn:aws:lambda:<YOUR_REGION>:<YOUR_ACCOUNT_ID>:function:<YOUR_FUNCTION_NAME>",
+      "ResultPath": "$.reservationResult",
+      "Next": "CalculateTransportPrice",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ]
+    },
+    "CalculateTransportPrice": {
+      "Type": "Task",
+  "Resource": "arn:aws:lambda:<YOUR_REGION>:<YOUR_ACCOUNT_ID>:function:<YOUR_FUNCTION_NAME>",
+      "ResultPath": "$.shippingResult",
+      "Next": "InitiatePayment",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ]
+    },
+    "InitiatePayment": {
+      "Type": "Task",
+  "Resource": "arn:aws:lambda:<YOUR_REGION>:<YOUR_ACCOUNT_ID>:function:<YOUR_FUNCTION_NAME>",
+      "ResultPath": "$.paymentResult",
+      "Next": "IsPaymentSuccessful",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ]
+    },
+    "IsPaymentSuccessful": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.paymentResult.isSuccess",
+          "BooleanEquals": true,
+          "Next": "UpdateOrderStatusPaid"
+        }
+      ],
+      "Default": "UpdateOrderStatusFailed"
+    },
+    "UpdateOrderStatusPaid": {
+      "Type": "Task",
+  "Resource": "arn:aws:lambda:<YOUR_REGION>:<YOUR_ACCOUNT_ID>:function:<YOUR_FUNCTION_NAME>",
+      "Parameters": {
+        "order_id.$": "$.order.order_id",
+        "status": "PAID",
+        "paymentResult.$": "$.paymentResult"
+      },
+      "ResultPath": "$.updateStatusResult",
+      "Next": "SendMail",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ]
+    },
+    "UpdateOrderStatusFailed": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:eu-west-2:022499048865:function:cosminUpdateOrderStatus:$LATEST",
+      "Parameters": {
+        "order_id.$": "$.order.order_id",
+        "status": "PAYMENT_FAILED",
+        "paymentResult.$": "$.paymentResult"
+      },
+      "ResultPath": "$.updateStatusResult",
+      "Next": "SendFailMail",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ]
+    },
+    "SendMail": {
+      "Type": "Task",
+  "Resource": "arn:aws:lambda:<YOUR_REGION>:<YOUR_ACCOUNT_ID>:function:<YOUR_FUNCTION_NAME>",
+      "ResultPath": "$.sendMailResult",
+      "End": true,
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ]
+    },
+    "SendFailMail": {
+      "Type": "Task",
+  "Resource": "arn:aws:lambda:<YOUR_REGION>:<YOUR_ACCOUNT_ID>:function:<YOUR_FUNCTION_NAME>",
+      "ResultPath": "$.sendFailMailResult",
+      "Next": "Fail",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ]
+    },
+    "Fail": {
+      "Type": "Fail",
+      "Cause": "Order processing failed",
+      "Error": "ValidationOrPaymentFailed"
+    }
+  }
+}
